@@ -8,7 +8,7 @@ import matplotlib.font_manager as fm
 import matplotlib.patches as patches
 from datetime import datetime
 import json
-from main import extract_geometry, adjust_transparency, score_color, sort_list
+from main import extract_geometry, adjust_transparency, score_color, sort_list, reduce_image_size
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -40,14 +40,57 @@ languages = {list(lang.keys())[0]: list(lang.values())[0] for lang in config.get
 
 # Flask API endpoint on Computer B
 API_ENDPOINT = ""
-filename = ""
 
-def handle_response(response, uploaded_file):
-    image = Image.open(uploaded_file)    
-    response_data = response.json()
+st.title("MapKurator Demo")
 
+selected_display_name = st.selectbox('選擇偵測語言 (Select a language)', list(languages.keys()))
+selected_language = languages.get(selected_display_name)
+if selected_language is not None:
+    # st.write(selected_language)
+    uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png", "jp2"])
+
+@st.cache_data
+def upload_and_send_data(selected_language, uploaded_file):
+    
+    if uploaded_file is not None:
+
+        uploaded_filename = uploaded_file.name
+        filename, file_extension = os.path.splitext(uploaded_filename)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        new_filename = f"{filename}-{timestamp}{file_extension}"
+        logger.info(f"Uploaded file name: {new_filename}")
+
+        # Read the content of the uploaded file
+        file_content = uploaded_file.read()
+
+        # Prepare data for the Flask API
+        json_data = {'selected_language': selected_language}
+        accepted_image_types = ['image/jpeg', 'image/jpg', 'image/jp2', 'image/png']
+        files = {
+            'file': (new_filename, file_content, accepted_image_types[0]),
+            'json_data': ('data.json', json.dumps(json_data), 'application/json')
+        }
+
+        # Set the Content-Type header explicitly
+        headers = None
+
+        # Send the image file and JSON data to the Flask API
+        response = requests.post(API_ENDPOINT, files=files, headers=headers, timeout=1000)
+
+        if response.status_code == 200:
+            response_data = response.json()
+            return response_data, uploaded_file, filename
+
+        else:
+            st.error(f"Error: {response.text}")
+    
+    return None, None, None
+
+@st.cache_data(experimental_allow_widgets=True)
+def handle_response(response_data, uploaded_file, filename):
     # Access the 'features' key directly from the parsed JSON data
     features = response_data['features']
+    image = reduce_image_size(uploaded_file)    
     text_with_score_list = []
 
     alpha = st.slider('文字透明度 (Text Transparency)', min_value=0.0, max_value=1.0, value=1.0, step=0.1, key="alpha_slider")
@@ -85,45 +128,7 @@ def handle_response(response, uploaded_file):
 
     st.download_button(label="下載偵測檔(Download JSON)", data=response_bytes, file_name=f'{filename}.json', mime='application/json')
 
-def upload_and_send_data():
-    st.title("MapKurator Demo")
-    selected_display_name = st.selectbox('選擇偵測語言 (Select a language)', list(languages.keys()))
-    selected_language = languages.get(selected_display_name)
-    if selected_language is not None:
-        # st.write(selected_language)
-        uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png", "jp2"])
-    
-    if uploaded_file is not None:
-        global filename
-
-        uploaded_filename = uploaded_file.name
-        filename, file_extension = os.path.splitext(uploaded_filename)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        new_filename = f"{filename}-{timestamp}{file_extension}"
-        logger.info(f"Uploaded file name: {new_filename}")
-
-        # Read the content of the uploaded file
-        file_content = uploaded_file.read()
-
-        # Prepare data for the Flask API
-        json_data = {'selected_language': selected_language}
-        accepted_image_types = ['image/jpeg', 'image/jpg', 'image/jp2', 'image/png']
-        files = {
-            'file': (new_filename, file_content, accepted_image_types[0]),
-            'json_data': ('data.json', json.dumps(json_data), 'application/json')
-        }
-
-        # Set the Content-Type header explicitly
-        headers = None
-
-        # Send the image file and JSON data to the Flask API
-        response = requests.post(API_ENDPOINT, files=files, headers=headers, timeout=1000)
-
-        if response.status_code == 200:
-            # Call the function to handle the response and visualization
-            handle_response(response, uploaded_file)
-        else:
-            st.error(f"Error: {response.text}")
-
 if __name__ == "__main__":
-    upload_and_send_data()
+    response_data, uploaded_file, filename = upload_and_send_data(selected_language, uploaded_file)
+    if response_data:
+        handle_response(response_data, uploaded_file, filename)
