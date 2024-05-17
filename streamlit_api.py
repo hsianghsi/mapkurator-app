@@ -38,8 +38,8 @@ fontsize_max = config.get('fontsize_max')
 fontsize_init = config.get('fontsize_init')
 languages = {list(lang.keys())[0]: list(lang.values())[0] for lang in config.get('languages')}
 
-# Flask API endpoint on Computer B
-API_ENDPOINT = ""
+# Flask API endpoint
+API_ENDPOINT = st.secrets["API_ENDPOINT"]
 
 st.title("MapKurator Demo")
 
