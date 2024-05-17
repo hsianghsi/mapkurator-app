@@ -1,0 +1,19 @@
+font_file: "C:\\Windows\\Fonts\\msjh.ttc"
+
+figsize_w: 15
+figsize_h: 12
+
+fontsize_min: 4
+fontsize_max: 12
+fontsize_init: 7
+
+languages:
+  - English: "/ssd/luhsianghsi/mapkurator-spotter/spotter-v2/configs/PALEJUN/Finetune/Rumsey_Polygon_Finetune.yaml"
+  - Chinese: "/ssd/luhsianghsi/mapkurator-spotter/spotter-v2/configs/PALEJUN/config-ch/SynthMap-ch/SynthMap_Polygon.yaml"
+
+score_colors:
+  none: [0, 0, 0] # Black
+  red: [1, 0, 0] # Red
+  orange: [1, 0.5, 0] # Orange
+  green: [0, 0.9, 0.1] # Green
+  dark_green: [0, 0.5, 0] # Dark green
