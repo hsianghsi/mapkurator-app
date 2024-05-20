@@ -17,16 +17,16 @@ def hello():
 
 @app.route('/app', methods=['POST'])
 def main():
-    logging.info("Request received")
-    logging.info(f"Request headers: {request.headers}")
-    logging.info(f"Request files data: {request.files}")
+    logger.info("Request received")
+    logger.info(f"Request headers: {request.headers}")
+    logger.info(f"Request files data: {request.files}")
 
     uploaded_file = request.files['file'] # Retrieve the file from the request
     file = uploaded_file.filename
     filename = os.path.splitext(file)[0]
 
     # Log file and language details
-    logging.info(f"Uploaded file: {file}")
+    logger.info(f"Uploaded file: {file}")
  
     # Retrieve the JSON data from the request
     json_data = request.files.get('json_data')
@@ -34,9 +34,9 @@ def main():
     if json_data:
         # Decode the JSON data
         selected_language = json.loads(json_data.read().decode())['selected_language']
-        logging.info(f"Selected language: {selected_language}")
+        logger.info(f"Selected language: {selected_language}")
     else:
-        logging.info("Unable to find Selected language.")
+        logger.info("Unable to find Selected language.")
 
     if selected_language and uploaded_file is not None:
     
