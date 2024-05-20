@@ -86,7 +86,7 @@ def upload_and_send_data(selected_language, uploaded_file):
     
     return None, None, None
 
-@st.cache_data(experimental_allow_widgets=True)
+# @st.cache_data(experimental_allow_widgets=True)
 def handle_response(response_data, uploaded_file, filename):
     # Access the 'features' key directly from the parsed JSON data
     features = response_data['features']
