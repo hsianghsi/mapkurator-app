@@ -2,8 +2,8 @@ input_folder: ""
 geojson_folder: "/Users/lu/Desktop/test_correct"
 font_file: "/System/Library/Fonts/PingFang.ttc"
 
-figsize_w: 15
-figsize_h: 12
+figsize_w: 16
+figsize_h: 16
 
 fontsize_min: 4
 fontsize_max: 12

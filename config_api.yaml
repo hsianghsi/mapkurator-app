@@ -1,7 +1,7 @@
 font_file: "msjh.ttc"
 
-figsize_w: 15
-figsize_h: 12
+figsize_w: 16
+figsize_h: 16
 
 fontsize_min: 4
 fontsize_max: 12
