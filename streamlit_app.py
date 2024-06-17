@@ -76,9 +76,13 @@ def main():
                     x, y = extract_geometry(feature)
                     text_with_score = f"{text} ({score:.2f})" if score is not None else text
                     poly_patch = patches.Polygon(xy=list(zip(x, y)), edgecolor=adjust_transparency(score_color(score), alpha), facecolor='none')
+                    ax.add_patch(poly_patch)
+                    
+                    # Extract and plot start/end point
+                    start_end_point = (x[0], y[0])
+                    ax.plot(start_end_point[0], start_end_point[1], 'ro')
                         
                     # Add text and patch to fig
-                    ax.add_patch(poly_patch)
                     ax.text(x[0], y[0], text, fontsize=fontsize, color=adjust_transparency(score_color(score), alpha), fontproperties=fm.FontProperties(fname=font_file), ha='center')
 
                     # Append text_with_score to the list

@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 from main import extract_geometry, adjust_transparency, score_color, sort_list, reduce_image_size
 import logging
+import glob
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ languages = {list(lang.keys())[0]: list(lang.values())[0] for lang in config.get
 
 # Flask API endpoint
 API_ENDPOINT = st.secrets["API_ENDPOINT"]
+REMOVE_ENDPOINT = st.secrets["REMOVE_ENDPOINT"]
 
 st.title("MapKurator Demo")
 
@@ -132,3 +134,21 @@ if __name__ == "__main__":
     response_data, uploaded_file, filename = upload_and_send_data(selected_language, uploaded_file)
     if response_data:
         handle_response(response_data, uploaded_file, filename)
+        
+        # Flag to ensure remove-files endpoint is called only once
+        remove_files_called = False
+
+        # Handle the response several times as an example
+        for _ in range(3):
+            handle_response(response_data, uploaded_file, filename)
+            
+            if not remove_files_called:
+                # Send a POST request to the remove-files endpoint
+                try:
+                    response = requests.post(REMOVE_ENDPOINT, timeout=1000)
+                    print("Response from /remove-files endpoint:")
+                    print(response.json())
+                    # Set the flag to True after the request is sent
+                    remove_files_called = True
+                except requests.exceptions.RequestException as e:
+                    print(f"Error sending request to {REMOVE_ENDPOINT}: {e}")

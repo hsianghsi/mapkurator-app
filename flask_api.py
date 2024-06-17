@@ -4,6 +4,7 @@ import subprocess
 import logging
 import os
 import json
+import glob
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +79,27 @@ def main():
 
         # Return the parsed GeoJSON data as JSON response
         return parsed_geojson_data
+
+@app.route('/remove', methods=['POST'])
+def remove_files():
+    directories = [
+        'ssd/luhsianghsi/mapkurator-input',
+        'ssd/luhsianghsi/mapkurator-output'
+    ]
+    
+    for directory in directories:
+        files = glob.glob(os.path.join(directory, '*'))
+        for file in files:
+            try:
+                os.remove(file)
+                print(f"Removed file: {file}")
+            except IsADirectoryError:
+                print(f"Skipped directory: {file}")
+            except Exception as e:
+                print(f"Error removing file {file}: {e}")
+    
+    return jsonify({"status": "success", "message": "Files removed successfully"}), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
