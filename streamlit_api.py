@@ -135,20 +135,10 @@ if __name__ == "__main__":
     if response_data:
         handle_response(response_data, uploaded_file, filename)
         
-        # Flag to ensure remove-files endpoint is called only once
-        remove_files_called = False
-
-        # Handle the response several times as an example
-        for _ in range(3):
-            handle_response(response_data, uploaded_file, filename)
-            
-            if not remove_files_called:
-                # Send a POST request to the remove-files endpoint
-                try:
-                    response = requests.post(REMOVE_ENDPOINT, timeout=1000)
-                    print("Response from /remove-files endpoint:")
-                    print(response.json())
-                    # Set the flag to True after the request is sent
-                    remove_files_called = True
-                except requests.exceptions.RequestException as e:
-                    print(f"Error sending request to {REMOVE_ENDPOINT}: {e}")
+        # Send a POST request to the remove-files endpoint
+        try:
+            response = requests.post(REMOVE_ENDPOINT, timeout=1000)
+            print("Response from /remove-files endpoint:")
+            print(response.json())
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending request to {REMOVE_ENDPOINT}: {e}")
