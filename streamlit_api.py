@@ -88,6 +88,15 @@ def upload_and_send_data(selected_language, uploaded_file):
     
     return None, None, None
 
+def remove_data():
+    try:
+        response = requests.post(REMOVE_ENDPOINT, timeout=1000)
+        print("Response from /remove-files endpoint:")
+        print(response.json())
+        st.session_state.remove_files_called = True
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending request to {REMOVE_ENDPOINT}: {e}")
+
 # @st.cache_data(experimental_allow_widgets=True)
 def handle_response(response_data, uploaded_file, filename):
     # Access the 'features' key directly from the parsed JSON data
@@ -132,13 +141,8 @@ def handle_response(response_data, uploaded_file, filename):
 
 if __name__ == "__main__":
     response_data, uploaded_file, filename = upload_and_send_data(selected_language, uploaded_file)
+    
+    remove_data()
+
     if response_data:
         handle_response(response_data, uploaded_file, filename)
-        
-        # Send a POST request to the remove-files endpoint
-        try:
-            response = requests.post(REMOVE_ENDPOINT, timeout=1000)
-            print("Response from /remove-files endpoint:")
-            print(response.json())
-        except requests.exceptions.RequestException as e:
-            print(f"Error sending request to {REMOVE_ENDPOINT}: {e}")
