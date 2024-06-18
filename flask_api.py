@@ -4,6 +4,7 @@ import subprocess
 import logging
 import os
 import json
+import shutil
 import glob
 
 # Set up logging
@@ -83,20 +84,24 @@ def main():
 @app.route('/remove', methods=['POST'])
 def remove_files():
     directories = [
-        'ssd/luhsianghsi/mapkurator-input',
-        'ssd/luhsianghsi/mapkurator-output'
+        '/ssd/luhsianghsi/mapkurator-input',
+        '/ssd/luhsianghsi/mapkurator-output'
     ]
     
     for directory in directories:
-        files = glob.glob(os.path.join(directory, '*'))
-        for file in files:
+        # Get all files and directories inside the given directory
+        items = glob.glob(os.path.join(directory, '*'))
+        
+        for item in items:
             try:
-                os.remove(file)
-                print(f"Removed file: {file}")
-            except IsADirectoryError:
-                print(f"Skipped directory: {file}")
+                if os.path.isfile(item):
+                    os.remove(item)
+                    print(f"Removed file: {item}")
+                elif os.path.isdir(item):
+                    shutil.rmtree(item)
+                    print(f"Removed directory and its contents: {item}")
             except Exception as e:
-                print(f"Error removing file {file}: {e}")
+                print(f"Error removing {item}: {e}")
     
     return jsonify({"status": "success", "message": "Files removed successfully"}), 200
 
