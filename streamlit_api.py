@@ -1,5 +1,6 @@
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 import os
 import yaml
 from PIL import Image
@@ -10,7 +11,9 @@ from datetime import datetime
 import json
 from main import extract_geometry, adjust_transparency, score_color, sort_list, reduce_image_size
 import logging
-import glob
+from io import BytesIO
+import time
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,48 +46,139 @@ languages = {list(lang.keys())[0]: list(lang.values())[0] for lang in config.get
 API_ENDPOINT = st.secrets["API_ENDPOINT"]
 REMOVE_ENDPOINT = st.secrets["REMOVE_ENDPOINT"]
 
-st.title("MapKurator Demo")
+# ==== FUNCTIONS ====
 
-selected_display_name = st.selectbox('選擇偵測語言 (Select a language)', list(languages.keys()))
-selected_language = languages.get(selected_display_name)
-if selected_language is not None:
-    # st.write(selected_language)
-    uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png", "jp2"])
+# Function to download a tile
+def download_tile(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        return Image.open(BytesIO(response.content))
+    else:
+        return None
+
+def get_leaflet_map():
+    # Embed the HTML file in the Streamlit app
+    html_file = 'leaflet_map.html'
+    with open(html_file, 'r') as f:
+        html_content = f.read()
+
+    # JavaScript to handle receiving messages from the iframe
+    receive_message_js = """
+    <script>
+        window.addEventListener('message', function(event) {
+            const data = event.data;
+            console.log('Received message from iframe:', data);
+            if (data && data.z !== undefined) {
+                // Send data to Streamlit via query parameters
+                const params = new URLSearchParams();
+                params.set('z', data.z);
+                params.set('x', JSON.stringify(data.x));
+                params.set('y', JSON.stringify(data.y));
+                window.parent.history.replaceState(null, '', `?${params.toString()}`);
+            }
+        });
+    </script>
+    """
+
+    # Display the HTML content with JavaScript code
+    components.html(html_content + receive_message_js, width=700, height=450)
+
+    if st.button("Get Map"):
+
+        # Function to get tile information
+        def get_tile_info():
+            params = st.experimental_get_query_params()
+            # st.write(f"Query Params: {params}")  # Log the query params
+            if 'z' in params and 'x' in params and 'y' in params:
+                zoom = params['z'][0]
+                x = json.loads(params['x'][0])
+                y = json.loads(params['y'][0])
+
+                # Sort the x and y lists
+                x_tiles = sorted(set(x))
+                y_tiles = sorted(set(y))
+                return zoom, x_tiles, y_tiles
+            else:
+                return None, None, None
+
+        # Retrieve tile information
+        zoom, x_tiles, y_tiles = get_tile_info()
+
+        # Display tile information or waiting message
+        if zoom is not None:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Zoom Level", zoom)
+            col2.info(f"X: {x_tiles}")
+            col3.info(f"Y: {y_tiles}")
+            
+            tile_size = 256
+
+            # Create a new blank image with appropriate size
+            width = tile_size * len(x_tiles)
+            height = tile_size * len(y_tiles)
+            stitched_image = Image.new('RGB', (width, height))
+
+            # Base URL
+            base_url = "https://gis.sinica.edu.tw/tileserver/file-exists.php?img=TM50K_1954-png-{}-{}-{}"
+
+            # Loop through tile coordinates, download, and paste them into the big image
+            for i, x in enumerate(x_tiles):
+                for j, y in enumerate(y_tiles):
+                    url = base_url.format(zoom, x, y)
+                    tile = download_tile(url)
+                    if tile:
+                        stitched_image.paste(tile, (i * tile_size, j * tile_size))
+
+            # Create a file-like object for the image
+            stitched_image_io = BytesIO()
+            stitched_image.save(stitched_image_io, format='JPEG')
+            stitched_image_io.seek(0)
+
+        else:
+            st.write("Waiting for tile information...")
+            st.write("<div id='zoom-tiles' style='white-space: pre-wrap;'></div>", unsafe_allow_html=True)
+
+        return stitched_image_io, zoom, x_tiles, y_tiles
+
 
 @st.cache_data
 def upload_and_send_data(selected_language, uploaded_file):
-    
-    if uploaded_file is not None:
 
+    # Check if the uploaded_file has a name attribute
+    if hasattr(uploaded_file, 'name'):
         uploaded_filename = uploaded_file.name
         filename, file_extension = os.path.splitext(uploaded_filename)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        new_filename = f"{filename}-{timestamp}{file_extension}"
-        logger.info(f"Uploaded file name: {new_filename}")
+    else:
+        filename = "image"
+        file_extension = ".jpeg"
 
-        # Read the content of the uploaded file
-        file_content = uploaded_file.read()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    new_filename = f"{filename}-{timestamp}{file_extension}"
+    logger.info(f"Uploaded file name: {new_filename}")
 
-        # Prepare data for the Flask API
-        json_data = {'selected_language': selected_language}
-        accepted_image_types = ['image/jpeg', 'image/jpg', 'image/jp2', 'image/png']
-        files = {
-            'file': (new_filename, file_content, accepted_image_types[0]),
-            'json_data': ('data.json', json.dumps(json_data), 'application/json')
-        }
+    # Read the content of the uploaded file
+    file_content = uploaded_file.read()
 
-        # Set the Content-Type header explicitly
-        headers = None
+    # Prepare data for the Flask API
+    json_data = {'selected_language': selected_language}
+    accepted_image_types = ['image/jpeg', 'image/jpg', 'image/jp2', 'image/png']
+    files = {
+        'file': (new_filename, file_content, accepted_image_types[0]),
+        'json_data': ('data.json', json.dumps(json_data), 'application/json')
+    }
 
-        # Send the image file and JSON data to the Flask API
-        response = requests.post(API_ENDPOINT, files=files, headers=headers, timeout=1000)
+    # Set the Content-Type header explicitly
+    headers = None
 
-        if response.status_code == 200:
-            response_data = response.json()
-            return response_data, uploaded_file, filename
+    # Send the image file and JSON data to the Flask API
+    response = requests.post(API_ENDPOINT, files=files, headers=headers, timeout=1000)
 
-        else:
-            st.error(f"Error: {response.text}")
+    if response.status_code == 200:
+        response_data = response.json()
+        return response_data, uploaded_file, filename
+
+    else:
+        st.error(f"Error: {response.text}")
     
     return None, None, None
 
@@ -140,9 +234,33 @@ def handle_response(response_data, uploaded_file, filename):
     st.download_button(label="下載偵測檔(Download JSON)", data=response_bytes, file_name=f'{filename}.json', mime='application/json')
 
 if __name__ == "__main__":
-    response_data, uploaded_file, filename = upload_and_send_data(selected_language, uploaded_file)
+    st.title("MapKurator Demo")
+
+    selected_display_name = st.selectbox('選擇偵測語言 (Select a Language)', list(languages.keys()))
+    selected_language = languages.get(selected_display_name)
     
-    remove_data()
+    option = st.selectbox(
+    "選擇偵測模組 (Select a Module)",
+    ("中研院百年歷史地圖", "自行上傳地圖"),
+    index=None,
+    placeholder="Select a module...",
+    )
+
+    st.write("You selected:", option)
+
+    response_data = None
+
+    if option == "自行上傳地圖":
+        uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png", "jp2"])
+        if uploaded_file is not None:
+            response_data, uploaded_filename, filename = upload_and_send_data(selected_language, uploaded_file)
+            remove_data()
+    
+    elif option == "中研院百年歷史地圖":
+        stitched_image_io, zoom, x_tiles, y_tiles = get_leaflet_map()
+        if stitched_image_io is not None:
+            response_data, uploaded_file, filename = upload_and_send_data(selected_language, stitched_image_io)
+            remove_data()
 
     if response_data:
         handle_response(response_data, uploaded_file, filename)

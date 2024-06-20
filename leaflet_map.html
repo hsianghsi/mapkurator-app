@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Leaflet Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="map" style="width: 700px; height: 400px;"></div>
+    <script>
+        var map = L.map('map').setView([25.04965648, 121.52180965], 15);
+
+        L.tileLayer('https://gis.sinica.edu.tw/tileserver/file-exists.php?img=TM50K_1954-png-{z}-{x}-{y}', {
+            maxZoom: 16,
+            minZoom: 12,
+            tileSize: 256
+        }).addTo(map);
+
+        function extractAndSendTileInfo() {
+            setTimeout(function() {
+                var tiles = document.querySelectorAll('.leaflet-tile.leaflet-tile-loaded');
+                var zoomLevel = null;
+                var xCoords = [];
+                var yCoords = [];
+
+                tiles.forEach(function(tile) {
+                    var src = tile.src;
+                    var regex = /TM50K_1954-png-(\d+)-(\d+)-(\d+)/;
+                    var match = src.match(regex);
+
+                    if (match) {
+                        var z = parseInt(match[1], 10);
+                        var x = parseInt(match[2], 10);
+                        var y = parseInt(match[3], 10);
+
+                        if (zoomLevel === null) {
+                            zoomLevel = z;
+                        }
+
+                        xCoords.push(x);
+                        yCoords.push(y);
+                    }
+                });
+
+                // Log the extracted tile information
+                console.log('Extracted tile info:', { z: zoomLevel, x: xCoords, y: yCoords });
+
+                // Directly set query parameters for Streamlit
+                var params = new URLSearchParams();
+                params.set('z', zoomLevel);
+                params.set('x', JSON.stringify(xCoords));
+                params.set('y', JSON.stringify(yCoords));
+                window.parent.history.replaceState(null, '', `?${params.toString()}`);
+                
+                // Log the sent data
+                console.log('Tile information sent:', { z: zoomLevel, x: xCoords, y: yCoords });
+            }, 3000); // 5 second delay to ensure tiles are loaded
+        }
+
+        map.on('moveend', extractAndSendTileInfo);
+        map.on('zoomend', extractAndSendTileInfo);
+
+        // Initial call to extract and set tile info
+        extractAndSendTileInfo();
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
