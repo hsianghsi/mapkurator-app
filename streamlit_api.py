@@ -90,22 +90,32 @@ def get_leaflet_map():
             params = st.experimental_get_query_params()
             # st.write(f"Query Params: {params}")  # Log the query params
             if 'z' in params and 'x' in params and 'y' in params:
-                zoom = params['z'][0]
+                zoom = int(params['z'][0])
                 x = json.loads(params['x'][0])
                 y = json.loads(params['y'][0])
 
                 # Sort the x and y lists
                 x_tiles = sorted(set(x))
                 y_tiles = sorted(set(y))
-                return zoom, x_tiles, y_tiles
+
+                tile_info = {
+                    'zoom': zoom,
+                    'x_tiles': x_tiles,
+                    'y_tiles': y_tiles
+                }
+                return tile_info
             else:
-                return None, None, None
+                return None
 
         # Retrieve tile information
-        zoom, x_tiles, y_tiles = get_tile_info()
+        tile_info = get_tile_info()
+
+        zoom = tile_info['zoom']
+        x_tiles = tile_info['x_tiles']
+        y_tiles = tile_info['y_tiles']
 
         # Display tile information or waiting message
-        if zoom is not None:
+        if tile_info is not None:
             col1, col2, col3 = st.columns(3)
             col1.metric("Zoom Level", zoom)
             col2.info(f"X: {x_tiles}")
@@ -138,11 +148,11 @@ def get_leaflet_map():
             st.write("Waiting for tile information...")
             st.write("<div id='zoom-tiles' style='white-space: pre-wrap;'></div>", unsafe_allow_html=True)
 
-        return stitched_image_io, zoom, x_tiles, y_tiles
+        return stitched_image_io, tile_info
 
 
 @st.cache_data
-def upload_and_send_data(selected_language, uploaded_file):
+def upload_and_send_data(selected_language, uploaded_file, tile_info=None):
 
     # Check if the uploaded_file has a name attribute
     if hasattr(uploaded_file, 'name'):
@@ -161,6 +171,8 @@ def upload_and_send_data(selected_language, uploaded_file):
 
     # Prepare data for the Flask API
     json_data = {'selected_language': selected_language}
+    if tile_info is not None:
+        json_data['tile_info'] = tile_info
     accepted_image_types = ['image/jpeg', 'image/jpg', 'image/jp2', 'image/png']
     files = {
         'file': (new_filename, file_content, accepted_image_types[0]),
@@ -231,7 +243,7 @@ def handle_response(response_data, uploaded_file, filename):
     # Encode the JSON string to bytes
     response_bytes = response_json.encode('utf-8')
 
-    st.download_button(label="下載偵測檔(Download JSON)", data=response_bytes, file_name=f'{filename}.json', mime='application/json')
+    st.download_button(label="下載偵測檔(Download JSON)", data=response_bytes, file_name=f'{filename}.geojson', mime='application/json')
 
 if __name__ == "__main__":
     st.title("MapKurator Demo")
@@ -253,14 +265,15 @@ if __name__ == "__main__":
     if option == "自行上傳地圖":
         uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png", "jp2"])
         if uploaded_file is not None:
-            response_data, uploaded_filename, filename = upload_and_send_data(selected_language, uploaded_file)
-            remove_data()
+            response_data, uploaded_file, filename = upload_and_send_data(selected_language, uploaded_file)
+            #remove_data()
     
     elif option == "中研院百年歷史地圖":
-        stitched_image_io, zoom, x_tiles, y_tiles = get_leaflet_map()
-        if stitched_image_io is not None:
-            response_data, uploaded_file, filename = upload_and_send_data(selected_language, stitched_image_io)
-            remove_data()
+        result = get_leaflet_map()
+        if result is not None:
+            stitched_image_io, tile_info = result
+            response_data, uploaded_file, filename = upload_and_send_data(selected_language, stitched_image_io, tile_info)
+            #remove_data()
 
     if response_data:
         handle_response(response_data, uploaded_file, filename)
