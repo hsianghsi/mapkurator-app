@@ -9,10 +9,13 @@ import matplotlib.font_manager as fm
 import matplotlib.patches as patches
 from datetime import datetime
 import json
-from main import extract_geometry, adjust_transparency, score_color, sort_list, reduce_image_size
+from main import extract_geometry, adjust_transparency, score_color, sort_list, reduce_image_size, add_polygons_and_labels
 import logging
 from io import BytesIO
 import time
+import folium
+from streamlit_folium import st_folium
+from streamlit_folium import folium_static
 
 
 logging.basicConfig(level=logging.INFO)
@@ -230,20 +233,35 @@ def handle_response(response_data, uploaded_file, filename):
             text_with_score_list.append(text_with_score)
 
     st.pyplot(fig)
+
+    # Initialize map centered at the first feature's center
+    if 'latlon' in features[0]['geometry']:
+        first_feature_coords = features[0]["geometry"]["latlon"][0]
+        center_lat = sum([coord[1] for coord in first_feature_coords]) / len(first_feature_coords)
+        center_lon = sum([coord[0] for coord in first_feature_coords]) / len(first_feature_coords)
+        m = folium.Map(location=[center_lat, center_lon], zoom_start=15, tiles="CartoDB positron")
+        add_polygons_and_labels(m, features)
+        
+        # Display the map in Streamlit
+        folium_static(m, width=725)
+
     st.write("文字偵測清單 (List of Spotted Text)")
     st.write(text_with_score_list)
 
     if st.button("Sort by Score"):
         sorted_list = sort_list(text_with_score_list)
         st.write(sorted_list)
+
+    # st.write(response_data)
     
     # Convert the dictionary to a JSON string
-    response_json = json.dumps(response_data)
+    response_json = json.dumps(response_data, sort_keys=False)
 
     # Encode the JSON string to bytes
     response_bytes = response_json.encode('utf-8')
 
     st.download_button(label="下載偵測檔(Download JSON)", data=response_bytes, file_name=f'{filename}.geojson', mime='application/json')
+
 
 if __name__ == "__main__":
     st.title("MapKurator Demo")
@@ -266,14 +284,15 @@ if __name__ == "__main__":
         uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png", "jp2"])
         if uploaded_file is not None:
             response_data, uploaded_file, filename = upload_and_send_data(selected_language, uploaded_file)
-            #remove_data()
+            remove_data()
     
     elif option == "中研院百年歷史地圖":
         result = get_leaflet_map()
         if result is not None:
             stitched_image_io, tile_info = result
             response_data, uploaded_file, filename = upload_and_send_data(selected_language, stitched_image_io, tile_info)
-            #remove_data()
+            remove_data()
 
     if response_data:
         handle_response(response_data, uploaded_file, filename)
+

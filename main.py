@@ -6,6 +6,7 @@ import os
 import matplotlib.font_manager as fm
 import yaml
 import tempfile
+import folium
 
 # ==== CONFIG ====
 def read_config():
@@ -165,3 +166,19 @@ def reduce_image_size(uploaded_file):
     
     # Return the image object
     return image
+
+# Function to add polygons and labels to the map
+def add_polygons_and_labels(map_obj, features):
+    for feature in features:
+        coords = feature['geometry']['latlon'][0]
+        text = feature['properties']['text']
+        # Directly using coordinates assuming they are in WGS84
+        polygon = folium.Polygon(locations=[[lat, lon] for lon, lat in coords], color='blue', fill=True, fill_color='blue', fill_opacity=0.2)
+        polygon.add_to(map_obj)
+
+        # Add a label near the first coordinate of the polygon
+        lon, lat = coords[0]
+        folium.Marker(
+            location=[lat, lon],
+            icon=folium.DivIcon(html=f'<div style="font-size: 12pt; color: red; white-space: nowrap;">{text}</div>')
+        ).add_to(map_obj)
